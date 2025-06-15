@@ -64,16 +64,55 @@ export class PDFBiomarkerParser {
     /(\d{4}-\d{1,2}-\d{1,2})/,
   ]
 
+  // Only reject clearly non-health documents
+  private static definitelyNonHealthKeywords = [
+    "assignment",
+    "internship",
+    "project",
+    "objective",
+    "dashboard",
+    "visualization",
+    "development",
+    "deployment",
+    "documentation",
+    "evaluation",
+    "criteria",
+    "ecotown",
+    "tech",
+    "cursor",
+    "vercel",
+    "replit",
+    "github",
+    "readme",
+    "instruction",
+  ]
+
+  // Generate a consistent file identifier for duplicate detection
+  private static generateFileId(file: File): string {
+    return `${file.name}-${file.size}`
+  }
+
   static async parsePDFFile(file: File): Promise<BiomarkerData | null> {
     try {
       console.log("Starting PDF parsing for:", file.name)
+
+      // Generate consistent file ID
+      const fileId = this.generateFileId(file)
+      console.log("File ID:", fileId)
 
       // Extract text from PDF
       const text = await PDFTextExtractor.extractTextFromPDF(file)
       console.log("Extracted text length:", text.length)
 
+      // Check if this is a health document (more lenient now)
+      if (!this.isHealthDocument(text, file.name)) {
+        throw new Error(
+          `This appears to be a non-medical document (${file.name}). Please upload a health report PDF containing biomarker values like cholesterol, creatinine, vitamins, etc.`,
+        )
+      }
+
       // Parse the extracted text
-      const biomarkerData = await this.parsePDFText(text)
+      const biomarkerData = await this.parsePDFText(text, fileId)
 
       if (biomarkerData) {
         console.log("Successfully parsed biomarker data:", biomarkerData)
@@ -86,11 +125,83 @@ export class PDFBiomarkerParser {
     }
   }
 
-  static async parsePDFText(text: string): Promise<BiomarkerData | null> {
+  private static isHealthDocument(text: string, fileName: string): boolean {
+    // Check filename for definitely non-health keywords
+    const fileNameLower = fileName.toLowerCase()
+    for (const keyword of this.definitelyNonHealthKeywords) {
+      if (fileNameLower.includes(keyword)) {
+        console.log(`Definitely non-health keyword detected in filename: ${keyword}`)
+        return false
+      }
+    }
+
+    // Check text content for definitely non-health keywords
+    const textLower = text.toLowerCase()
+    let definitelyNonHealthMatches = 0
+    for (const keyword of this.definitelyNonHealthKeywords) {
+      if (textLower.includes(keyword)) {
+        definitelyNonHealthMatches++
+      }
+    }
+
+    // If too many definitely non-health keywords, reject
+    if (definitelyNonHealthMatches > 2) {
+      console.log(`Too many definitely non-health keywords detected: ${definitelyNonHealthMatches}`)
+      return false
+    }
+
+    // Check for health-related keywords in the text
+    const healthKeywords = [
+      "cholesterol",
+      "hdl",
+      "ldl",
+      "triglycerides",
+      "creatinine",
+      "vitamin",
+      "hba1c",
+      "glucose",
+      "blood",
+      "serum",
+      "mg/dl",
+      "ng/ml",
+      "pg/ml",
+      "lipid",
+      "profile",
+      "lab",
+      "test",
+      "result",
+      "patient",
+      "medical",
+      "health",
+      "report",
+      "screening",
+      "biomarker",
+    ]
+
+    let healthMatches = 0
+    for (const keyword of healthKeywords) {
+      if (textLower.includes(keyword)) {
+        healthMatches++
+      }
+    }
+
+    console.log(
+      `Health keywords found: ${healthMatches}, Definitely non-health keywords: ${definitelyNonHealthMatches}`,
+    )
+
+    // Be more lenient - if it's not definitely non-health and has some health indicators, accept it
+    // Or if the generated text contains biomarker data, accept it
+    const hasGeneratedBiomarkers =
+      textLower.includes("cholesterol") || textLower.includes("creatinine") || textLower.includes("vitamin")
+
+    return healthMatches >= 1 || hasGeneratedBiomarkers
+  }
+
+  static async parsePDFText(text: string, fileId?: string): Promise<BiomarkerData | null> {
     try {
       const extractedData: Partial<BiomarkerData> = {}
 
-      // Extract date
+      // Extract date - use consistent date for same file
       const dateMatch = this.extractDate(text)
       extractedData.date = dateMatch || new Date().toISOString().split("T")[0]
 
@@ -107,10 +218,13 @@ export class PDFBiomarkerParser {
 
       // Validate that we have at least some biomarkers
       if (extractedCount === 0) {
-        throw new Error("No biomarkers found in the uploaded document")
+        throw new Error(
+          "No biomarker values found in the document. Please ensure the PDF contains health report data with numerical values for cholesterol, creatinine, vitamins, etc.",
+        )
       }
 
-      // Fill in missing values with reasonable defaults to ensure complete data
+      // Only fill in missing values with 0 for biomarkers that weren't found
+      // This prevents showing fake data
       const completeData: BiomarkerData = {
         date: extractedData.date!,
         totalCholesterol: extractedData.totalCholesterol || 0,
@@ -121,6 +235,11 @@ export class PDFBiomarkerParser {
         vitaminD: extractedData.vitaminD || 0,
         vitaminB12: extractedData.vitaminB12 || 0,
         hba1c: extractedData.hba1c || 0,
+      }
+
+      // Add file identifier for duplicate detection
+      if (fileId) {
+        ;(completeData as any).fileId = fileId
       }
 
       return completeData

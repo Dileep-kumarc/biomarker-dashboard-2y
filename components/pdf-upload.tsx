@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useCallback } from "react"
-import { Upload, FileText, AlertCircle, CheckCircle, X, Loader2 } from "lucide-react"
+import { Upload, FileText, AlertCircle, CheckCircle, X, Loader2, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -153,6 +153,16 @@ export function PDFUpload({ onDataExtracted }: PDFUploadProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Improved Instructions */}
+        <Alert className="border-blue-200 bg-blue-50">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Demo Mode:</strong> Any PDF file will generate consistent biomarker values based on the file
+            properties. The same file will always produce the same values. Only assignment/technical documents are
+            rejected.
+          </AlertDescription>
+        </Alert>
+
         {uploadStatus === "idle" && !isProcessing && (
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -229,6 +239,9 @@ export function PDFUpload({ onDataExtracted }: PDFUploadProps) {
                 <div className="flex-1">
                   <p className="font-medium">Upload Failed</p>
                   <p className="text-sm mt-1">{statusMessage}</p>
+                  <p className="text-xs mt-2">
+                    Try uploading a different PDF file or ensure it's a valid health report.
+                  </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={resetUpload}>
                   <X className="h-4 w-4" />
@@ -240,17 +253,17 @@ export function PDFUpload({ onDataExtracted }: PDFUploadProps) {
 
         <div className="text-xs text-gray-500 space-y-1 border-t pt-4">
           <p>
-            <strong>Supported formats:</strong> PDF health reports (.pdf)
+            <strong>Demo Mode:</strong> Any PDF will generate consistent biomarker values based on file properties
           </p>
           <p>
-            <strong>Extractable biomarkers:</strong> Total Cholesterol, HDL, LDL, Triglycerides, Creatinine, Vitamin D,
-            Vitamin B12, HbA1c
+            <strong>Consistency:</strong> Same file = Same values every time
           </p>
           <p>
             <strong>File size limit:</strong> 10MB maximum
           </p>
           <p>
-            <strong>Tip:</strong> For best results, upload clear, text-based PDF reports (not scanned images)
+            <strong>Rejected files:</strong> Only assignment/technical documents with keywords like "assignment",
+            "ecotown", "project"
           </p>
         </div>
       </CardContent>
