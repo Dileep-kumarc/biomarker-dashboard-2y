@@ -1,5 +1,5 @@
-import { BiomarkerDashboard } from "@/components/biomarker-dashboard"
+import { ComprehensiveBiomarkerDashboard } from "@/components/comprehensive-biomarker-dashboard"
 
 export default function Home() {
-  return <BiomarkerDashboard />
+  return <ComprehensiveBiomarkerDashboard />
 }
